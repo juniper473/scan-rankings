@@ -5,7 +5,7 @@ module.exports = async function scanLadiesRanking(page) {
   const tierId = 10;     // <-- YOU SET THIS
 
   for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
-    console.log(`📄 Fetching ranking page ${pageNum} (Tier ${tierId})`);
+    //console.log(`📄 Fetching ranking page ${pageNum} (Tier ${tierId})`);
 
     // STEP 1: REQUEST
     const response = await page.evaluate(async ({ pageNum, tierId }) => {
@@ -65,7 +65,7 @@ module.exports = async function scanLadiesRanking(page) {
     }, response.html);
 
     // LOG RESULTS
-    console.log(`===== PAGE ${pageNum} RESULTS (${ladies.length}) =====`);
+    //console.log(`===== PAGE ${pageNum} RESULTS (${ladies.length}) =====`);
     ladies.forEach((lady) => {
       console.log(
         `${lady.name} | ${lady.club} | ${lady.level} | ${lady.experience}`
