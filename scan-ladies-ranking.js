@@ -1,7 +1,7 @@
 module.exports = async function scanLadiesRanking(page) {
   // 🔧 MANUAL INPUTS
   const startPage = 1;   // <-- YOU SET THIS
-  const endPage = 5;    // <-- YOU SET THIS
+  const endPage = 140;    // <-- YOU SET THIS
   const tierId = 10;     // <-- YOU SET THIS
 
   for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
