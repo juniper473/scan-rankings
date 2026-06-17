@@ -1,98 +1,82 @@
-// fetch-ranking.js
 module.exports = async function scanLadiesRanking(page) {
+  // 🔧 MANUAL INPUTS
+  const startPage = 1;   // <-- YOU SET THIS
+  const endPage = 5;    // <-- YOU SET THIS
+  const tierId = 10;     // <-- YOU SET THIS
 
-  // 🔧 CONFIG — EDIT ONLY THIS SECTION
-  const tierConfigs = [
-    { tierId: 10, startPage: 1, endPage: 5 },
-    //{ tierId: 2, startPage: 1, endPage: 50 },
-    //{ tierId: 3, startPage: 1, endPage: 50 },
-  ];
+  for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
+    console.log(`📄 Fetching ranking page ${pageNum} (Tier ${tierId})`);
 
-  const PAGE_DELAY = 700;
+    // STEP 1: REQUEST
+    const response = await page.evaluate(async ({ pageNum, tierId }) => {
+      const body = new URLSearchParams();
+      body.append('action', 'getRanking');
+      body.append('page', pageNum);
+      body.append('tierId', tierId);
 
-  // CSV HEADER
-  console.log('rank,playerId,name,level,xp,club');
-
-  for (const { tierId, startPage, endPage } of tierConfigs) {
-
-    console.log(`\n📊 Fetching Tier ${tierId}`);
-
-    for (let currentPage = startPage; currentPage <= endPage; currentPage++) {
-
-      const rows = await page.evaluate(
-        async ({ currentPage, tierId }) => {
-          const res = await fetch('/ajax/ranking/players.php', {
-            method: 'POST',
-            body: new URLSearchParams({
-              action: 'getRanking',
-              page: currentPage.toString(),
-              tierId: tierId.toString()
-            }),
-            credentials: 'same-origin'
-          });
-
-          const data = await res.json();
-          if (!data.html) return [];
-
-          const container = document.createElement('div');
-          container.innerHTML = data.html;
-
-          const results = [];
-          const trs = container.querySelectorAll('tbody tr[id^="num"]');
-
-          trs.forEach(tr => {
-            const rank =
-              tr.querySelector('.ranking-player-rank')?.textContent.trim();
-            const nameEl =
-              tr.querySelector('.ranking-player-name a');
-
-            if (!rank || !nameEl) return;
-
-            const name = nameEl.textContent.trim();
-
-            const href = nameEl.getAttribute('href') || '';
-            const idMatch = href.match(/profile\/(\d+)/);
-            const playerId = idMatch ? idMatch[1] : '';
-
-            const level =
-              tr.querySelector('.ranking-player-level')?.textContent.trim() || '';
-
-            const xp =
-              tr.querySelector('.ranking-player-xp')
-                ?.textContent.replace(/[^\d]/g, '') || '';
-
-            const club =
-              tr.querySelector('.ranking-player-guild .player-guild-logo-name')
-                ?.textContent.trim() || '';
-
-            results.push({
-              rank,
-              playerId,
-              name,
-              level,
-              xp,
-              club
-            });
-          });
-
-          return results;
+      const res = await fetch('/ajax/ranking/players.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         },
-        { currentPage, tierId }
-      );
+        body: body.toString(),
+        credentials: 'same-origin',
+      });
 
-      if (!rows.length) {
-        console.warn(`⚠️ No rows on page ${currentPage}, tier ${tierId}`);
-      }
+      return res.json();
+    }, { pageNum, tierId });
 
-      for (const r of rows) {
-        console.log(
-          `${r.rank},${r.playerId},"${r.name.replace(/"/g,'""')}",${r.level},${r.xp},"${r.club.replace(/"/g,'""')}"`
-        );
-      }
+    // LOG FULL RESPONSE (OPTIONAL DEBUG)
+    console.log(`----- RAW RESPONSE PAGE ${pageNum} -----`);
+    console.log(response);
 
-      await page.waitForTimeout(PAGE_DELAY);
+    if (!response || response.status !== 1 || !response.html) {
+      console.log(`⚠️ Page ${pageNum} failed or empty. Continuing.`);
+      continue;
     }
+
+    // STEP 2: PARSE HTML
+    const ladies = await page.evaluate((html) => {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+
+      const rows = wrapper.querySelectorAll('tr[id^="num"]');
+      const results = [];
+
+      rows.forEach((tr) => {
+        const name =
+          tr.querySelector('.player-avatar-name')?.textContent.trim() || null;
+
+        const club =
+          tr.querySelector('.player-guild-logo-name')?.textContent.trim() || null;
+
+        const stats = tr.querySelectorAll('.ranking-player-stat');
+        const level = stats[0]?.textContent.trim() || null;
+
+        const expRaw = stats[1]?.textContent || null;
+        const experience = expRaw
+          ? Number(expRaw.replace(/,/g, ''))
+          : null;
+
+        results.push({ name, club, level, experience });
+      });
+
+      return results;
+    }, response.html);
+
+    // LOG RESULTS
+    console.log(`===== PAGE ${pageNum} RESULTS (${ladies.length}) =====`);
+    ladies.forEach((lady) => {
+      console.log(
+        `${lady.name} | ${lady.club} | ${lady.level} | ${lady.experience}`
+      );
+    });
+
+    // SMALL DELAY (SAFE)
+    await page.waitForTimeout(300);
   }
 
-  console.log('✅ RANKING FETCH COMPLETED');
+  console.log(
+    `🎉 Finished scanning pages ${startPage} → ${endPage} for tier ${tierId}`
+  );
 };
