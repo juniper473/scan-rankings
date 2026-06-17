@@ -1,48 +1,58 @@
 /**
  * scan-ladies-ranking.js
  *
- * Requirements satisfied:
- * - Manual input: startPage, endPage, tierId
+ * - Manual inputs: startPage, endPage, tierId
  * - Internal POST request to /ajax/ranking/players.php
- * - Sequential page processing
+ * - Sequential page scanning
  * - 1 console log per lady
  * - Handles "no club"
- * - Logs clean text for Google Sheets parsing
+ * - Console output ready for Google Sheets parsing
  */
 
 module.exports = async function scanLadiesRanking(page) {
-  // 🔧 MANUAL INPUTS
-  const startPage = 1;   // <-- change manually
-  const endPage = 5;     // <-- change manually
-  const tierId = 10;     // <-- change manually (constant)
+  // 🔧 MANUAL INPUTS (EDIT THESE)
+  const startPage = 1;   // starting ranking page
+  const endPage = 5;     // ending ranking page
+  const tierId = 10;     // tier ID (constant)
 
-  console.log(`📊 STARTING RANKING SCAN | Pages ${startPage} → ${endPage} | Tier ${tierId}`);
+  console.log(
+    `📊 STARTING RANKING SCAN | Pages ${startPage} → ${endPage} | Tier ${tierId}`
+  );
+
+  // Ensure proper origin for fetch()
+  await page.goto('https://v3.g.ladypopular.com', {
+    waitUntil: 'domcontentloaded'
+  });
 
   for (let currentPage = startPage; currentPage <= endPage; currentPage++) {
     console.log(`📄 Processing page ${currentPage}`);
 
-    const response = await page.evaluate(async (pageNum, tier) => {
-      const res = await fetch('/ajax/ranking/players.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-        },
-        body: new URLSearchParams({
-          action: 'getRanking',
-          page: pageNum,
-          tierId: tier
-        })
-      });
+    // 🔹 Fetch ranking data (Playwright-safe argument passing)
+    const response = await page.evaluate(
+      async ({ pageNum, tier }) => {
+        const res = await fetch('/ajax/ranking/players.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: new URLSearchParams({
+            action: 'getRanking',
+            page: pageNum,
+            tierId: tier
+          })
+        });
 
-      return res.json();
-    }, currentPage, tierId);
+        return res.json();
+      },
+      { pageNum: currentPage, tier: tierId }
+    );
 
     if (!response || response.status !== true || !response.html) {
-      console.log(`❌ Failed to load page ${currentPage}`);
+      console.log(`❌ Failed to load ranking page ${currentPage}`);
       continue;
     }
 
-    // Parse HTML safely inside browser context
+    // 🔹 Parse ranking HTML inside browser context
     const ladies = await page.evaluate((html) => {
       const container = document.createElement('div');
       container.innerHTML = html;
@@ -59,7 +69,10 @@ module.exports = async function scanLadiesRanking(page) {
         if (!nameEl || !levelEl || !expEl) return;
 
         const name = nameEl.textContent.trim();
-        const club = guildEl && guildEl.textContent.trim() ? guildEl.textContent.trim() : 'no club';
+        const club =
+          guildEl && guildEl.textContent.trim()
+            ? guildEl.textContent.trim()
+            : 'no club';
         const level = levelEl.textContent.trim();
         const experience = expEl.textContent.trim();
 
@@ -69,14 +82,14 @@ module.exports = async function scanLadiesRanking(page) {
       return results;
     }, response.html);
 
-    // 🔹 Log exactly ONE lady per line
+    // 🔹 Log ONE lady per line (Google Sheets friendly)
     ladies.forEach(lady => {
       console.log(
         `${lady.name} | ${lady.club} | Level ${lady.level} | EXP ${lady.experience}`
       );
     });
 
-    // Anti-spam / stability delay
+    // Small delay for stability / anti-spam
     await page.waitForTimeout(400 + Math.random() * 600);
   }
 
