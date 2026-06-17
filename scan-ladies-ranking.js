@@ -1,5 +1,5 @@
 // fetch-ranking.js
-module.exports = async function runFetchRanking(page) {
+module.exports = async function scanLadiesRanking(page) {
 
   // 🔧 CONFIG — EDIT ONLY THIS SECTION
   const tierConfigs = [
