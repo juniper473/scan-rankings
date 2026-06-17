@@ -27,8 +27,8 @@ module.exports = async function scanLadiesRanking(page) {
     }, { pageNum, tierId });
 
     // LOG FULL RESPONSE (OPTIONAL DEBUG)
-    console.log(`----- RAW RESPONSE PAGE ${pageNum} -----`);
-    console.log(response);
+    //console.log(`----- RAW RESPONSE PAGE ${pageNum} -----`);
+    //console.log(response);
 
     if (!response || response.status !== 1 || !response.html) {
       console.log(`⚠️ Page ${pageNum} failed or empty. Continuing.`);
